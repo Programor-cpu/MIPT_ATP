@@ -1,0 +1,19 @@
+Sum=P1;S3
+Mul=0; Sum(P1,P3)
+Pow=1; Mul(P1, P3)
+Minus1=0;P1
+And=0;P1
+Bool=0;1
+Sub=P1; Minus1(P3) #Sub(a,b)={a-b} is zero if a < b, a-b otherwise
+IsZero=1;0
+Nor=1;0
+Diff=Sum(Sub(P1, P2), Sub(P2, P1)) #|a-b|={a-b} + {b-a}
+Eq=IsZero(Diff)
+Or=P1;1
+Follows=Or(IsZero(P1),P2) #Follows(a,b) = a -> b in logic term
+BiggerThan1=Bool(Minus1)
+Max=Sum(P1,Sub(P2,P1)) #max(a,b)=a+{b-a}
+Min=Sub(Max,Diff)
+StupidCond=P2;P1
+Cond=StupidCond(P3,P2,P1) #tern operator, returns second if first is zero, otherwise third
+Bigger=Eq(Max, P) #Is first not less than second

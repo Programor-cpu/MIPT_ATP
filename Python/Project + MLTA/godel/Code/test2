@@ -1,0 +1,25 @@
+D=S(S(S(S(S(S(S))))))
+M=P(P(P(P(P3))))
+W=P(S2(P1,P2,P3))
+
+D1=P
+D2=P
+D3=P
+D4=P
+D5=P
+D6=P
+D7=P
+D8=P
+D9=P
+
+Monster1=P4(S2(P, P2(S^10, P5)), S3(P, S(P, P(S), S2(10, 2, P(7, 8 S(S(S(P8), P5(S(P3(P2(S, S, S, S))
+Monster2=S(D1(D2(D3, D4, D5), D6(D7, D8, D9)), P2(S2(P, S)), S(S(S(S(S(P))))))
+Monster3=S(Monster1(Monster2, P, P, P, P, P, P, P, P, P), Monster2)
+
+
+D(0)
+M(1,2,3,4)
+W(7,6,8,1,0,2,2)
+Monster1(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+Monster2(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)
+Monster3(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16)

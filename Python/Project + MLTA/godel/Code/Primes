@@ -1,0 +1,14 @@
+import Basic
+IsThereLessThatSupportDivision=0;Cond(Diff(P1, Mul(P2,S(P3))),1,P4)
+IsADividerBiggerThanHalf = IsThereLessThatSupportDivision(P1,P2,P2)
+PrimeDividerCondition=Follows(IsADividerBiggerThanHalf(P1,P2),Eq(P2, 1))
+ForEveryLessNumberPrimeDividerCondition=1; Cond(PrimeDividerCondition(P1,P2),0,P3)
+PrimeWithException=ForEveryLessNumberPrimeDividerCondition(P1, P1)
+PrimeAndBigger=And(PrimeWithException(P2), Sub(P2,P1))
+ForEveryLessNumberNotPrimeAndBigger=1;Cond(PrimeAndBigger,P3,0) #Returns the biggest
+IsNumberNextPrime=And(PrimeWithException(P2), ForEveryLessNumberNotPrimeAndBigger(P1,Minus1(P2)))
+#to be next prime, you should be prime, bigger and there should be no primes in-between
+nextPrimeFall=1;Cond(IsNumberNextPrime(P,S2), P3, S2) #cheks the biggest number that IsNumberNextPrime is satisfied
+nextPrime=nextPrimeFall(P, Mul(P, 2)) #return next prime
+nPrime=2;nextPrime(P2) #returns n-th prime in zero notation
+Prime=And(BiggerThan1, PrimeWithException) #checks is number prime or not

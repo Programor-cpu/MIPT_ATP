@@ -1,0 +1,26 @@
+Sum=P1;S3
+Mul=0;Sum(P1, P3)
+Pow=1;Mul(P1, P3)
+Minus1=0;P1
+Sub=P1; Minus1(P3)
+Nor=1;0
+Diff=Sum(Sub(P1, P2), Sub(P2, P1))
+Eq=Nor(Diff)
+Max=Sum(P1, Sub(P2,P1))
+Min=Sub(Max, Diff)
+Bigger=Eq(Max, P)
+
+Sum(10, 11)
+Sum(0,0)
+Mul(1,2)
+Mul(4, 5)
+Sub(8, 2)
+Sub(6, 6)
+Max(3, 5)
+Max(10, 3)
+Min(4, 8)
+Min(1,6)
+Bigger(5,5)
+Bigger(0,8)
+Bigger(10,7)
+Pow(2,15)
