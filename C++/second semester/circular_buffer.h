@@ -17,7 +17,7 @@ class CircularBuffer {
   template <size_t Cap>
   struct optional_buffer_container {
    private:
-    std::array<std::byte[sizeof(T)], Cap + 1> arr_;
+    alignas(alignof(T)) std::array<std::byte[sizeof(T)], Cap + 1> arr_;
 
    public:
     optional_buffer_container() = default;
