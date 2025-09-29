@@ -173,6 +173,9 @@ class DFA {
 
   //MINIMIZE (by Hopcroft)
   void minimize() {
+    if (!is_complete_) {
+      complete();
+    }
     std::set<State> reachable_states;
     std::queue<State> BFS_queue;
     BFS_queue.push(start_state_);
