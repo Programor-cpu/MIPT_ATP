@@ -28,11 +28,11 @@ be too complicated sometimes. But they are still equal to the true ones.
 template <typename Symbol = char, typename State = int>
 class NFA;
 
-//DFA CLASS
+// DFA CLASS
 template <typename Symbol = char, typename State = int>
 class DFA {
  private:
-  //FIELDS
+  // FIELDS
   friend NFA<Symbol, State>;
   std::set<Symbol> alphabet_;     //Σ
   std::set<State> states_;        // Q
@@ -42,14 +42,14 @@ class DFA {
       transition_function_;  //δ:Q×Σ→Q |w|=1
   bool is_complete_ = false;
 
-  //PRIVATE METHODS
+  // PRIVATE METHODS
   void add_transition(State from, Symbol sym, State to) {
     transition_function_[{from, sym}] = to;
   }
 
   bool is_final(State state) const { return final_states_.contains(state); }
 
-  //REGEX
+  // REGEX
   std::string regex_union(const std::string& a, const std::string& b) const {
     if (a.empty()) {
       return b;
@@ -85,7 +85,7 @@ class DFA {
   DFA() = default;
 
  public:
-  //PRINTER
+  // PRINTER
   void print() {
     std::cout << "-----------------------------" << '\n';
     std::cout << "Alphabet: ";
@@ -116,7 +116,7 @@ class DFA {
     std::cout << "-----------------------------" << '\n';
   }
 
-  //COMPLETE
+  // COMPLETE
   void complete() {
     bool need_sink = false;
     for (State state : states_) {
@@ -151,7 +151,7 @@ class DFA {
     return copy;
   }
 
-  //INVERT
+  // INVERT
   void invert() {
     if (!is_complete_) {
       complete();
@@ -171,153 +171,151 @@ class DFA {
     return copy;
   }
 
-  //MINIMIZE (by Hopcroft)
+  // MINIMIZE (by Hopcroft)
   void minimize() {
-        if (!is_complete_) {
-            complete();
-        }
-        std::set<State> reachable_states;
-        std::queue<State> BFS_queue;
-        BFS_queue.push(start_state_);
-        reachable_states.insert(start_state_);
-
-        while (!BFS_queue.empty()) {
-            State current = BFS_queue.front();
-            BFS_queue.pop();
-            for (Symbol letter : alphabet_) {
-                if (transition_function_.contains({ current, letter })) {
-                    State next = transition_function_.at({ current, letter });
-                    if (!reachable_states.contains(next)) {
-                        reachable_states.insert(next);
-                        BFS_queue.push(next);
-                    }
-                }
-            }
-        }
-        DFA temp_DFA;
-        temp_DFA.alphabet_ = alphabet_;
-        temp_DFA.start_state_ = start_state_;
-        for (State st : reachable_states) {
-            temp_DFA.states_.insert(st);
-            if (final_states_.contains(st)) {
-                temp_DFA.final_states_.insert(st);
-            }
-            for (Symbol letter : alphabet_) {
-                if (transition_function_.contains({ st, letter }) &&
-                    reachable_states.contains(transition_function_.at({ st, letter }))) {
-                    temp_DFA.add_transition(st, letter,
-                        transition_function_.at({ st, letter }));
-                }
-            }
-        }
-        std::set<State> final_states;
-        std::set<State> non_final_states;
-        std::set<std::set<State>> partition;
-        for (State st : temp_DFA.states_) {
-            if (is_final(st)) {
-                final_states.insert(st);
-            }
-            else {
-                non_final_states.insert(st);
-            }
-        }
-        if (!final_states.empty()) {
-            partition.insert(final_states);
-        }
-        if (!non_final_states.empty()) {
-            partition.insert(non_final_states);
-        }
-        std::queue<std::set<State>> worklist;
-
-        if (final_states.size() <= non_final_states.size()) {
-            if (!final_states.empty()) {
-                worklist.push(final_states);
-            }
-        }
-        else {
-            if (!non_final_states.empty()) {
-                worklist.push(non_final_states);
-            }
-        }
-
-        while (!worklist.empty()) {
-            std::set<State> A = worklist.front(); 
-            worklist.pop();
-
-            for (Symbol letter : temp_DFA.alphabet_) {
-                std::set<State> x;
-                for (State state : temp_DFA.states_) {
-                    if (temp_DFA.transition_function_.contains({ state, letter })) {
-                        if (A.contains(
-                            temp_DFA.transition_function_.at({ state, letter }))) {
-                            x.insert(state);
-                        }
-                    }
-                }
-
-                std::set<std::set<State>> new_partition_sets;
-                std::set<std::set<State>> partition_to_erase;
-
-                for (const auto& Y : partition) { 
-                    std::set<State> y_intersect_x;
-                    std::set_intersection(
-                        Y.begin(), Y.end(), x.begin(), x.end(),
-                        std::inserter(y_intersect_x, y_intersect_x.begin()));
-
-                    std::set<State> y_minus_x;
-                    std::set_difference(Y.begin(), Y.end(), x.begin(), x.end(),
-                        std::inserter(y_minus_x, y_minus_x.begin()));
-
-                    if (!y_intersect_x.empty() && !y_minus_x.empty()) {
-                        partition_to_erase.insert(Y);
-                        new_partition_sets.insert(y_intersect_x);
-                        new_partition_sets.insert(y_minus_x);
-
-                        const std::set<State>& smaller_set = (y_intersect_x.size() <= y_minus_x.size()) ? y_intersect_x : y_minus_x;
-                        worklist.push(smaller_set);
-                    }
-                }
-
-                for (const auto& Y_to_erase : partition_to_erase) {
-                    partition.erase(Y_to_erase);
-                }
-                partition.insert(new_partition_sets.begin(), new_partition_sets.end());
-            }
-        }
-
-
-        DFA min_DFA;
-        min_DFA.alphabet_ = temp_DFA.alphabet_;
-        std::map<State, State> old_state_to_new_state;
-        State new_state_counter = 0;
-
-        for (const auto& block : partition) {
-            State representative = *block.begin();
-            State newState = new_state_counter++;
-            min_DFA.states_.insert(newState);
-            for (State s : block) {
-                old_state_to_new_state[s] = newState;
-            }
-            if (is_final(representative)) {
-                min_DFA.final_states_.insert(newState);
-            }
-        }
-        min_DFA.start_state_ = old_state_to_new_state[temp_DFA.start_state_];
-
-        for (const auto& block : partition) {
-            State representative = *block.begin();
-            for (Symbol letter : min_DFA.alphabet_) {
-                if (temp_DFA.transition_function_.contains({ representative, letter })) {
-                    State old_next_state =
-                        temp_DFA.transition_function_.at({ representative, letter });
-                    State new_next_state = old_state_to_new_state[old_next_state];
-                    min_DFA.add_transition(old_state_to_new_state[representative], letter,
-                        new_next_state);
-                }
-            }
-        }
-        *this = min_DFA;
+    if (!is_complete_) {
+      complete();
     }
+    std::set<State> reachable_states;
+    std::queue<State> BFS_queue;
+    BFS_queue.push(start_state_);
+    reachable_states.insert(start_state_);
+
+    while (!BFS_queue.empty()) {
+      State current = BFS_queue.front();
+      BFS_queue.pop();
+      for (Symbol letter : alphabet_) {
+        if (transition_function_.contains({current, letter})) {
+          State next = transition_function_.at({current, letter});
+          if (!reachable_states.contains(next)) {
+            reachable_states.insert(next);
+            BFS_queue.push(next);
+          }
+        }
+      }
+    }
+    DFA temp_DFA;
+    temp_DFA.alphabet_ = alphabet_;
+    temp_DFA.start_state_ = start_state_;
+    for (State st : reachable_states) {
+      temp_DFA.states_.insert(st);
+      if (final_states_.contains(st)) {
+        temp_DFA.final_states_.insert(st);
+      }
+      for (Symbol letter : alphabet_) {
+        if (transition_function_.contains({st, letter}) &&
+            reachable_states.contains(transition_function_.at({st, letter}))) {
+          temp_DFA.add_transition(st, letter,
+                                  transition_function_.at({st, letter}));
+        }
+      }
+    }
+    std::set<State> final_states;
+    std::set<State> non_final_states;
+    std::set<std::set<State>> partition;
+    for (State st : temp_DFA.states_) {
+      if (is_final(st)) {
+        final_states.insert(st);
+      } else {
+        non_final_states.insert(st);
+      }
+    }
+    if (!final_states.empty()) {
+      partition.insert(final_states);
+    }
+    if (!non_final_states.empty()) {
+      partition.insert(non_final_states);
+    }
+    std::queue<std::set<State>> worklist;
+
+    if (final_states.size() <= non_final_states.size()) {
+      if (!final_states.empty()) {
+        worklist.push(final_states);
+      }
+    } else {
+      if (!non_final_states.empty()) {
+        worklist.push(non_final_states);
+      }
+    }
+
+    while (!worklist.empty()) {
+      std::set<State> A = worklist.front();
+      worklist.pop();
+
+      for (Symbol letter : temp_DFA.alphabet_) {
+        std::set<State> x;
+        for (State state : temp_DFA.states_) {
+          if (temp_DFA.transition_function_.contains({state, letter})) {
+            if (A.contains(temp_DFA.transition_function_.at({state, letter}))) {
+              x.insert(state);
+            }
+          }
+        }
+
+        std::set<std::set<State>> new_partition_sets;
+        std::set<std::set<State>> partition_to_erase;
+
+        for (const auto& Y : partition) {
+          std::set<State> y_intersect_x;
+          std::set_intersection(
+              Y.begin(), Y.end(), x.begin(), x.end(),
+              std::inserter(y_intersect_x, y_intersect_x.begin()));
+
+          std::set<State> y_minus_x;
+          std::set_difference(Y.begin(), Y.end(), x.begin(), x.end(),
+                              std::inserter(y_minus_x, y_minus_x.begin()));
+
+          if (!y_intersect_x.empty() && !y_minus_x.empty()) {
+            partition_to_erase.insert(Y);
+            new_partition_sets.insert(y_intersect_x);
+            new_partition_sets.insert(y_minus_x);
+
+            const std::set<State>& smaller_set =
+                (y_intersect_x.size() <= y_minus_x.size()) ? y_intersect_x
+                                                           : y_minus_x;
+            worklist.push(smaller_set);
+          }
+        }
+
+        for (const auto& Y_to_erase : partition_to_erase) {
+          partition.erase(Y_to_erase);
+        }
+        partition.insert(new_partition_sets.begin(), new_partition_sets.end());
+      }
+    }
+
+    DFA min_DFA;
+    min_DFA.alphabet_ = temp_DFA.alphabet_;
+    std::map<State, State> old_state_to_new_state;
+    State new_state_counter = 0;
+
+    for (const auto& block : partition) {
+      State representative = *block.begin();
+      State newState = new_state_counter++;
+      min_DFA.states_.insert(newState);
+      for (State s : block) {
+        old_state_to_new_state[s] = newState;
+      }
+      if (is_final(representative)) {
+        min_DFA.final_states_.insert(newState);
+      }
+    }
+    min_DFA.start_state_ = old_state_to_new_state[temp_DFA.start_state_];
+
+    for (const auto& block : partition) {
+      State representative = *block.begin();
+      for (Symbol letter : min_DFA.alphabet_) {
+        if (temp_DFA.transition_function_.contains({representative, letter})) {
+          State old_next_state =
+              temp_DFA.transition_function_.at({representative, letter});
+          State new_next_state = old_state_to_new_state[old_next_state];
+          min_DFA.add_transition(old_state_to_new_state[representative], letter,
+                                 new_next_state);
+        }
+      }
+    }
+    *this = min_DFA;
+  }
 
   void minimized() const {
     DFA copy = *this;
@@ -325,7 +323,7 @@ class DFA {
     return copy;
   }
 
-  //REGEX
+  // REGEX
   std::string to_regex() const {
     if (final_states_.empty()) {
       return "[empty set]";
@@ -388,18 +386,18 @@ class DFA {
   }
 };
 
-//NFA CLASS
+// NFA CLASS
 template <typename Symbol = char, typename State = int>
 class NFA {
  private:
-  //FIELDS
+  // FIELDS
   std::set<Symbol> alphabet_;     //Σ
   std::set<State> states_;        // Q
   State start_state_ = 0;         // s∈Q
   std::set<State> final_states_;  // T⊂Q
   std::map<std::pair<State, Symbol>, std::set<State>>
       transition_function_;  //δ:Q×Σ→Q |w|=1
-  //CONSTRUCTOR (private)
+  // CONSTRUCTOR (private)
   NFA() = default;
 
  public:
@@ -410,7 +408,7 @@ class NFA {
         start_state_(start),
         final_states_(finals) {}
 
-  //TRANSITION ADD/DELETE
+  // TRANSITION ADD/DELETE
   void add_transition(State from, Symbol sym, State to) {
     transition_function_[{from, sym}].insert(to);
   }
@@ -419,7 +417,7 @@ class NFA {
     transition_function_[{from, sym}].erase(to);
   }
 
-  //PRINTER
+  // PRINTER
   void print() {
     std::cout << "-----------------------------" << '\n';
     std::cout << "Alphabet: ";
@@ -458,7 +456,7 @@ class NFA {
     std::cout << "-----------------------------" << '\n';
   }
 
-  //EPSILON ELIMINATION BLOCK
+  // EPSILON ELIMINATION BLOCK
   std::set<State> get_epsilon_closure(State state) const {
     std::set<State> closure;
     std::queue<State> BFS_queue;
@@ -516,7 +514,7 @@ class NFA {
     *this = new_NFA;
   }
 
-  //THE ONLY WAY TO CREATE DFA
+  // THE ONLY WAY TO CREATE DFA
   DFA<Symbol, State> toDFA() const {
     DFA dfa;
     dfa.alphabet_ = alphabet_;
