@@ -1,6 +1,5 @@
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <iterator>
 #include <memory>
 #include <type_traits>
@@ -166,6 +165,11 @@ class UnorderedMap {
       node->left = nullptr;
       node->right = nullptr;
       return node;
+    }
+
+    void destroy_node(Node* const node) {
+      alloc_traits::destroy(allocator_, node);
+      alloc_traits::deallocate(allocator_, node, 1);
     }
 
    public:
