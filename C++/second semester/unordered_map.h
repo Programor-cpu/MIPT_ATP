@@ -135,11 +135,8 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc, pair_ptr, 
-                               std::piecewise_construct, 
-                               std::forward_as_tuple(key), 
-                               std::tuple<>()
-                              );
+        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
+                               std::forward_as_tuple(key), std::tuple<>());
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
         throw;
@@ -153,11 +150,9 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc, pair_ptr, 
-                               std::piecewise_construct, 
-                               std::forward_as_tuple(std::move(key)), 
-                               std::tuple<>()
-                              );
+        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
+                               std::forward_as_tuple(std::move(key)),
+                               std::tuple<>());
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
         throw;
@@ -190,7 +185,11 @@ class UnorderedMap {
       friend class List<T, list_allocator>;
       using Pointer = std::conditional<ISCONST, const T*, T*>::type;
       using Reference = std::conditional<ISCONST, const T&, T&>::type;
-      BaseNode* current_ = nullptr;
+      using CurrentPointer =
+          std::conditional_t<ISCONST, const BaseNode*, BaseNode*>;
+      using CurrentNodePointer =
+          std::conditional_t<ISCONST, const Node*, Node*>;
+      CurrentPointer current_ = nullptr;
 
      public:
       using difference_type = std::ptrdiff_t;
@@ -202,8 +201,7 @@ class UnorderedMap {
       // CONSTRUCTORS
       base_iterator() : current_(nullptr) {}
 
-      explicit base_iterator(const BaseNode* need)
-          : current_(const_cast<BaseNode*>(need)) {}
+      explicit base_iterator(CurrentPointer need) : current_(need) {}
 
       template <bool ANOTHERCONST>
         requires(!ANOTHERCONST || ISCONST)
@@ -216,14 +214,16 @@ class UnorderedMap {
       base_iterator& operator=(const base_iterator<ANOTHERCONST>& other);
 
       Reference operator*() const {
-        return static_cast<Node*>(current_)->value;
+        return static_cast<CurrentNodePointer>(current_)->value;
       }
 
       Pointer operator->() const {
-        return &(static_cast<Node*>(current_)->value);
+        return &(static_cast<CurrentNodePointer>(current_)->value);
       }
 
-      Node* get_pointer() { return static_cast<Node*>(current_); }
+      CurrentNodePointer get_pointer() {
+        return static_cast<CurrentNodePointer>(current_);
+      }
 
       base_iterator& operator++() {
         current_ = current_->right;
@@ -245,12 +245,12 @@ class UnorderedMap {
         current_ = current_->left;
         return temper;
       }
-
-      bool operator==(const base_iterator& another) const {
+      template <bool OPTCONST>
+      bool operator==(const base_iterator<OPTCONST>& another) const {
         return current_ == another.current_;
       }
-
-      bool operator!=(const base_iterator& another) const {
+      template <bool OPTCONST>
+      bool operator!=(const base_iterator<OPTCONST>& another) const {
         return !(*this == another);
       }
     };
@@ -264,7 +264,6 @@ class UnorderedMap {
     const_iterator cbegin() const { return const_iterator(fake_.right); }
 
     iterator end() { return iterator(&fake_); }
-    iterator end_iter() const { return iterator(&fake_); }  // SPECIAL FOR FIND
     const_iterator end() const { return const_iterator(&fake_); }
     const_iterator cend() const { return const_iterator(&fake_); }
 
@@ -502,10 +501,7 @@ class UnorderedMap {
     using pointer = Pointer;
     using difference_type = std::ptrdiff_t;
     // CONSTRUCTORS
-    explicit base_iterator(const list_iter& iter)
-        : iter_(const_cast<list_iter&>(iter)) {}
-
-    explicit base_iterator(list_iter& iter) : iter_(iter) {}
+    explicit base_iterator(const list_iter& iter) : iter_(iter) {}
 
     template <bool ANOTHERCONST>
       requires(!ANOTHERCONST || ISCONST)
@@ -567,10 +563,10 @@ class UnorderedMap {
   // SIZE ASPECTS END
   // METHODS
   // FIND
-  iterator find(const Key& key) const noexcept {
+  iterator find(const Key& key) noexcept {
     size_t bucket = get_bucket(key);
     list_iterator i = buckets_begins_[bucket];
-    if (i == containment_->end_iter()) {
+    if (i == containment_->end()) {
       return iterator(i);
     }
     size_t actual_hash = (i.get_pointer())->hash;
@@ -578,14 +574,34 @@ class UnorderedMap {
       if (equal_(key, i->first)) {
         return iterator(i);
       }
-      if (i == containment_->end_iter()) {
+      if (i == containment_->end()) {
         break;
       }
       ++i;
       actual_hash = (i.get_pointer())->hash;
     }
-    auto j = containment_->end_iter();
+    auto j = containment_->end();
     return iterator(j);
+  }
+  iterator find(const Key& key) const noexcept {
+    size_t bucket = get_bucket(key);
+    list_iterator i = buckets_begins_[bucket];
+    if (i == containment_->cend()) {
+      return iterator(i);
+    }
+    size_t actual_hash = (i.get_pointer())->hash;
+    while (actual_hash % buckets_amount_ == bucket) {
+      if (equal_(key, i->first)) {
+        return iterator(i);
+      }
+      if (i == containment_->cend()) {
+        break;
+      }
+      ++i;
+      actual_hash = (i.get_pointer())->hash;
+    }
+    auto j = containment_->cend();
+    return const_iterator(j);
   }
   // CONTAINS (like modern map)
   bool contains(const Key& key) const noexcept { return (find(key) != cend()); }
