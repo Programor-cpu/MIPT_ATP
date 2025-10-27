@@ -133,18 +133,10 @@ class UnorderedMap {
 
     Node* make_node_via_key(const Key& key) {
       Node* node = alloc_traits::allocate(allocator_, 1);
-      Key* key_ptr = const_cast<Key*>(&node->value.first);
-      Value* value_ptr = &node->value.second;
+      NodeType* pair_ptr = &(node->value);
       try {
-        key_traits::construct(key_alloc, key_ptr, key);
+        pair_traits::construct(pair_alloc, pair_ptr, key, Value{});
       } catch (...) {
-        alloc_traits::deallocate(allocator_, node, 1);
-        throw;
-      }
-      try {
-        value_traits::construct(value_alloc, value_ptr);
-      } catch (...) {
-        key_traits::destroy(key_alloc, key_ptr);
         alloc_traits::deallocate(allocator_, node, 1);
         throw;
       }
@@ -155,18 +147,10 @@ class UnorderedMap {
 
     Node* make_node_via_key(Key&& key) {
       Node* node = alloc_traits::allocate(allocator_, 1);
-      Key* key_ptr = const_cast<Key*>(&node->value.first);
-      Value* value_ptr = &node->value.second;
+      NodeType* pair_ptr = &(node->value);
       try {
-        key_traits::construct(key_alloc, key_ptr, key);
+        pair_traits::construct(pair_alloc, pair_ptr, std::move(key), Value{});
       } catch (...) {
-        alloc_traits::deallocate(allocator_, node, 1);
-        throw;
-      }
-      try {
-        value_traits::construct(value_alloc, value_ptr);
-      } catch (...) {
-        key_traits::destroy(key_alloc, key_ptr);
         alloc_traits::deallocate(allocator_, node, 1);
         throw;
       }
@@ -183,7 +167,7 @@ class UnorderedMap {
    public:
     // LIST CONSTRUCTORS
     List(const list_allocator& alloc = list_allocator())
-        : fake_(&fake_, &fake_), size_(0), allocator_(alloc){};
+        : fake_(&fake_, &fake_), size_(0), allocator_(alloc) {};
 
     ~List() {
       while (!empty()) {
@@ -214,14 +198,14 @@ class UnorderedMap {
           : current_(const_cast<BaseNode*>(need)) {}
 
       template <bool ANOTHERCONST>
-      requires(!ANOTHERCONST || ISCONST)
-          base_iterator(const base_iterator<ANOTHERCONST>& other)
+        requires(!ANOTHERCONST || ISCONST)
+      base_iterator(const base_iterator<ANOTHERCONST>& other)
           : current_(other.current_) {}
 
       // OPERATORS AND METHOD
       template <bool ANOTHERCONST>
-      requires(!ANOTHERCONST || ISCONST) base_iterator& operator=(
-          const base_iterator<ANOTHERCONST>& other);
+        requires(!ANOTHERCONST || ISCONST)
+      base_iterator& operator=(const base_iterator<ANOTHERCONST>& other);
 
       Reference operator*() const {
         return static_cast<Node*>(current_)->value;
@@ -298,21 +282,20 @@ class UnorderedMap {
       return to_delete;
     }
     // ERASERS
-    void erase(const_iterator to_erase) noexcept {
+    void erase(iterator to_erase) noexcept {
       if (to_erase.current_ == &fake_) {
         return;
       }
-      Node* erased =
-          static_cast<Node*>(const_cast<BaseNode*>(to_erase.current_));
+      Node* erased = static_cast<Node*>(to_erase.current_);
       erased->left->right = erased->right;
       erased->right->left = erased->left;
       destroy_node(erased);
       --size_;
     }
     // INSERTERS
-    void insert(const_iterator to_emplace, Node* inserted) noexcept {
+    void insert(iterator to_emplace, Node* inserted) noexcept {
       Node* moved = nullptr;
-      moved = static_cast<Node*>(const_cast<BaseNode*>(to_emplace.current_));
+      moved = static_cast<Node*>(to_emplace.current_);
       inserted->left = moved->left;
       inserted->right = moved;
       moved->left->right = inserted;
@@ -474,15 +457,10 @@ class UnorderedMap {
       return *this;
     }
     if (alloc_traits::propagate_on_container_move_assignment::value) {
-      UnorderedMap copied(std::forward<UnorderedMap>(another));
-      swap(copied);
+      swap(another);
       return *this;
     }
-    UnorderedMap copied(allocator_);
-    for (iterator i = another.begin(); i != another.end(); ++i) {
-      copied.insert(
-          {std::move(const_cast<Key&>((*i).first)), std::move((*i).second)});
-    }
+    UnorderedMap copied(std::move(another));
     swap(copied);
     return *this;
   }
@@ -517,14 +495,14 @@ class UnorderedMap {
     explicit base_iterator(list_iter& iter) : iter_(iter) {}
 
     template <bool ANOTHERCONST>
-    requires(!ANOTHERCONST || ISCONST)
-        base_iterator(const base_iterator<ANOTHERCONST>& other)
+      requires(!ANOTHERCONST || ISCONST)
+    base_iterator(const base_iterator<ANOTHERCONST>& other)
         : iter_(other.iter_) {}
 
     // OPERATORS
     template <bool ANOTHERCONST>
-    requires(!ANOTHERCONST || ISCONST) base_iterator& operator=(
-        const base_iterator<ANOTHERCONST>& other);
+      requires(!ANOTHERCONST || ISCONST)
+    base_iterator& operator=(const base_iterator<ANOTHERCONST>& other);
 
     base_iterator operator++(int) {
       base_iterator temper = *this;
