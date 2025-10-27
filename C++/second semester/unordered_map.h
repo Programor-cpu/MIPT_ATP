@@ -583,16 +583,16 @@ class UnorderedMap {
     auto j = containment_->end();
     return iterator(j);
   }
-  iterator find(const Key& key) const noexcept {
+  const_iterator find(const Key& key) const noexcept {
     size_t bucket = get_bucket(key);
     list_iterator i = buckets_begins_[bucket];
     if (i == containment_->cend()) {
-      return iterator(i);
+      return const_iterator(i);
     }
     size_t actual_hash = (i.get_pointer())->hash;
     while (actual_hash % buckets_amount_ == bucket) {
       if (equal_(key, i->first)) {
-        return iterator(i);
+        return const_iterator(i);
       }
       if (i == containment_->cend()) {
         break;
