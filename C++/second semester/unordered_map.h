@@ -462,7 +462,7 @@ class UnorderedMap {
                   allocator_ != another.allocator_) {
       UnorderedMap copied(allocator_);
       for (iterator i = another.begin(); i != another.end(); ++i) {
-        copied.insert(*i);
+        copied.insert(std::move(*i));
       }
       swap(copied);
       return *this;
