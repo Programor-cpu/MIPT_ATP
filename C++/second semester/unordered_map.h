@@ -457,14 +457,14 @@ class UnorderedMap {
     if (this == &another) {
       return *this;
     }
-    if constexpr (!alloc_traits::propagate_on_container_move_assignment::
-                      value &&
-                  allocator_ != another.allocator_) {
-      UnorderedMap copied(allocator_);
+    if constexpr (!alloc_traits::propagate_on_container_move_assignment::value && allocator_ != another.allocator_) {
       for (iterator i = another.begin(); i != another.end(); ++i) {
-        copied.insert(std::move(*i));
+        if (contains((*i).first)) {
+          (*this)[(*i).first] = std::move((*i).second);
+          continue;
+        }
+        insert(std::move(*i));
       }
-      swap(copied);
       return *this;
     }
     swap(another);
