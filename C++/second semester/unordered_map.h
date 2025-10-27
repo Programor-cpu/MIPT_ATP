@@ -632,7 +632,7 @@ class UnorderedMap {
       return {finded, false};
     }
     Node* node;
-    node = containment_->make_node(push);
+    node = containment_->make_node(std::forward<NodeType>(push));
     node->hash = hash;
     insert(node);
     return {iterator(buckets_begins_[bucket]), true};
