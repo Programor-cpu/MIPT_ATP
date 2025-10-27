@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <cmath>
+#include <iostream>
 #include <iterator>
 #include <memory>
 #include <type_traits>
@@ -103,11 +104,11 @@ class UnorderedMap {
       return node;
     }
 
-    Node* make_node(NodeTypeNonConst&& another) {
+    Node* make_node(NodeType&& another) {
       Node* node = alloc_traits::allocate(allocator_, 1);
       try {
         alloc_traits::construct(allocator_, node,
-                                std::forward<NodeTypeNonConst>(another));
+                                std::forward<NodeType>(another));
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
         throw;
@@ -456,12 +457,17 @@ class UnorderedMap {
     if (this == &another) {
       return *this;
     }
-    if (alloc_traits::propagate_on_container_move_assignment::value) {
-      swap(another);
+    if constexpr (!alloc_traits::propagate_on_container_move_assignment::
+                      value &&
+                  allocator_ != another.allocator_) {
+      UnorderedMap copied(allocator_);
+      for (iterator i = another.begin(); i != another.end(); ++i) {
+        copied.insert(*i);
+      }
+      swap(copied);
       return *this;
     }
-    UnorderedMap copied(std::move(another));
-    swap(copied);
+    swap(another);
     return *this;
   }
   // OPERATOR = END
@@ -605,7 +611,20 @@ class UnorderedMap {
     }
   }
   // INSERTERS
-  std::pair<iterator, bool> insert(const NodeTypeNonConst& push) {
+  std::pair<iterator, bool> insert(const NodeType& push) {
+    size_t hash = hasher_(push.first);
+    size_t bucket = hash % buckets_amount_;
+    iterator finded(find(push.first));
+    if (finded != end()) {
+      return {finded, false};
+    }
+    Node* node;
+    node = containment_->make_node(push);
+    node->hash = hash;
+    insert(node);
+    return {iterator(buckets_begins_[bucket]), true};
+  }
+  std::pair<iterator, bool> insert(NodeType&& push) {
     size_t hash = hasher_(push.first);
     size_t bucket = hash % buckets_amount_;
     iterator finded(find(push.first));
@@ -619,17 +638,10 @@ class UnorderedMap {
     return {iterator(buckets_begins_[bucket]), true};
   }
 
-  std::pair<iterator, bool> insert(NodeTypeNonConst&& push) {
-    size_t hash = hasher_(push.first);
-    size_t bucket = hash % buckets_amount_;
-    iterator finded(find(push.first));
-    if (finded != end()) {
-      return {finded, false};
-    }
-    Node* node = containment_->make_node(std::forward<NodeTypeNonConst>(push));
-    node->hash = hash;
-    insert(node);
-    return {iterator(buckets_begins_[bucket]), true};
+  template <typename P>
+    requires(!std::is_same_v<P, NodeType>)
+  std::pair<iterator, bool> insert(P&& push) {
+    return emplace(std::forward<P>(push));
   }
 
   template <typename IteratorType>
