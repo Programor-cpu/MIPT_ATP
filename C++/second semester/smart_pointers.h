@@ -482,8 +482,12 @@ SharedPtr<T> makeShared(Args&&... args) {
   shrd_detail::ValueControlBlock<T>* control =
       new shrd_detail::ValueControlBlock<T, std::allocator<T>>(
           std::forward<Args>(args)...);
-  return SharedPtr<T>(&control->value,
-                      static_cast<shrd_detail::ControlBlock*>(control));
+  SharedPtr<T> pointer(&control->value,
+                       static_cast<shrd_detail::ControlBlock*>(control));
+  if constexpr (std::is_base_of<EnableSharedFromThis<T>, T>::value) {
+    pointer->EnableSharedFromThis<T>::weak_ = pointer;
+  }
+  return pointer;
 }
 
 template <typename T, typename Allocator, typename... Args>
@@ -497,6 +501,10 @@ SharedPtr<T> allocateShared(const Allocator& allocator, Args&&... args) {
       ShareTraits::allocate(share_alloc, 1);
   ShareTraits::construct(share_alloc, control, allocator,
                          std::forward<Args>(args)...);
-  return SharedPtr<T>(&control->value,
-                      static_cast<shrd_detail::ControlBlock*>(control));
+  SharedPtr<T> pointer(&control->value,
+                       static_cast<shrd_detail::ControlBlock*>(control));
+  if constexpr (std::is_base_of<EnableSharedFromThis<T>, T>::value) {
+    pointer->EnableSharedFromThis<T>::weak_ = pointer;
+  }
+  return pointer;
 }
