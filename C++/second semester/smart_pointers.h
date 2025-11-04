@@ -23,7 +23,7 @@ struct ControlBlock {
   size_t count_of_weak;
   // CONS/DES
   ControlBlock() : ControlBlock(1, 0) {};
-  ~ControlBlock() = default;
+  virtual ~ControlBlock() = default;
   // METHODS
   bool is_alive() const { return (count_of_shared != 0); }
 
