@@ -438,11 +438,8 @@ class WeakPtr {
   }
 
   SharedPtr<T> lock() const {
-    if (controller_ == nullptr) {
+    if (controller_ == nullptr || !controller_->is_alive()) {
       return SharedPtr<T>();
-    }
-    if (!controller_->is_alive()) {
-      return SharedPtr<T>(nullptr, controller_);
     }
     ++controller_->count_of_shared;
     return SharedPtr<T>(static_cast<T*>(controller_->get_managed_object_ptr()),
