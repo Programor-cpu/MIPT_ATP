@@ -231,7 +231,7 @@ bool operator <(const String& one, const String& two) {
     return !(one >= two);
 }
 std::ostream& operator<<(std::ostream& out, const String& string_out) {
-    out << string_out.data();
+    out.write(string_out.data(), string_out.size());
     return out;
 }
 std::istream& operator>>(std::istream& in, String& string_in) {
