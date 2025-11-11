@@ -21,9 +21,12 @@ struct ControlBlock {
   // FIELDS
   size_t count_of_shared;
   size_t count_of_weak;
+
   // CONS/DES
   ControlBlock() : ControlBlock(1, 0) {};
+
   virtual ~ControlBlock() = default;
+
   // METHODS
   bool is_alive() const { return (count_of_shared != 0); }
 
@@ -145,6 +148,7 @@ struct ValueControlBlock : ControlBlock {
 
 template <typename T>
 class SharedPtr;
+
 template <typename T>
 class WeakPtr;
 
@@ -153,8 +157,16 @@ template <typename T>
 class EnableSharedFromThis {
  private:
   friend SharedPtr<T>;
+
+  template <typename Y, typename... Args>
+  friend SharedPtr<Y> makeShared(Args&&... args);
+
+  template <typename Y, typename Allocator, typename... Args>
+  friend SharedPtr<Y> allocateShared(const Allocator& allocator,
+                                     Args&&... args);
+
   // FIELDS
-  WeakPtr<T> weak_ = nullptr;
+  WeakPtr<T> weak_;
 
  public:
   // METHODS
@@ -349,13 +361,29 @@ class SharedPtr {
     return 0;
   }
 
-  T& operator*() { return *pointer_; }
+  template <typename U = T>
+    requires(!std::is_void_v<U> && std::is_same_v<U, T>)
+  U& operator*() {
+    return *pointer_;
+  }
 
-  const T& operator*() const { return *pointer_; }
+  template <typename U = T>
+    requires(!std::is_void_v<U> && std::is_same_v<U, T>)
+  const U& operator*() const {
+    return *pointer_;
+  }
 
-  T* operator->() { return pointer_; }
+  template <typename U = T>
+    requires(!std::is_void_v<U> && std::is_same_v<U, T>)
+  U* operator->() {
+    return pointer_;
+  }
 
-  const T* operator->() const { return pointer_; }
+  template <typename U = T>
+    requires(!std::is_void_v<U> && std::is_same_v<U, T>)
+  const U* operator->() const {
+    return *pointer_;
+  }
 
   T* get() { return pointer_; }
 
@@ -371,8 +399,12 @@ class WeakPtr {
   // FRIENDS
   template <typename Y>
   friend class SharedPtr;
+
   template <typename Y>
   friend class WeakPtr;
+
+  template <typename Y>
+  friend class EnableSharedFromThis;
 
   // ONLY FIELD
   ControlBlock* controller_;
@@ -462,16 +494,6 @@ class WeakPtr {
 
   void swap(WeakPtr& another) { std::swap(controller_, another.controller_); }
 };
-}  // namespace shrd_detail
-
-template <typename T>
-using SharedPtr = shrd_detail::SharedPtr<T>;
-
-template <typename T>
-using WeakPtr = shrd_detail::WeakPtr<T>;
-
-template <typename T>
-using EnableSharedFromThis = shrd_detail::EnableSharedFromThis<T>;
 
 // MAKE SHARED and ALLOCATE SHARED
 template <typename T, typename... Args>
@@ -505,3 +527,17 @@ SharedPtr<T> allocateShared(const Allocator& allocator, Args&&... args) {
   }
   return pointer;
 }
+}  // namespace shrd_detail
+
+template <typename T>
+using SharedPtr = shrd_detail::SharedPtr<T>;
+
+template <typename T>
+using WeakPtr = shrd_detail::WeakPtr<T>;
+
+template <typename T>
+using EnableSharedFromThis = shrd_detail::EnableSharedFromThis<T>;
+
+using shrd_detail::makeShared;
+
+using shrd_detail::allocateShared;
