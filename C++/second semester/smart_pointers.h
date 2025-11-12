@@ -297,7 +297,6 @@ class SharedPtr {
   }
 
   template <typename Y>
-    requires is_convertible_pointer<T, Y>
   SharedPtr(const SharedPtr<Y>& another, T* alias_pointer)
       : pointer_(alias_pointer), controller_(another.controller_) {
     if (controller_ != nullptr) {
