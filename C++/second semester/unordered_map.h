@@ -77,18 +77,8 @@ class UnorderedMap {
         std::allocator_traits<Allocator>::template rebind_alloc<NodeType>;
     using pair_traits =
         std::allocator_traits<Allocator>::template rebind_traits<NodeType>;
-    using key_allocator =
-        std::allocator_traits<Allocator>::template rebind_alloc<Key>;
-    using key_traits =
-        std::allocator_traits<Allocator>::template rebind_traits<Key>;
-    using value_allocator =
-        std::allocator_traits<Allocator>::template rebind_alloc<Value>;
-    using value_traits =
-        std::allocator_traits<Allocator>::template rebind_traits<Value>;
 
-    [[no_unique_address]] pair_allocator pair_alloc{allocator_};
-    [[no_unique_address]] key_allocator key_alloc{allocator_};
-    [[no_unique_address]] value_allocator value_alloc{allocator_};
+    [[no_unique_address]] pair_allocator pair_alloc_{allocator_};
 
    public:
     // NODE MAKERS AND DESTROYER
@@ -120,7 +110,7 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc, pair_ptr,
+        pair_traits::construct(pair_alloc_, pair_ptr,
                                std::forward<Args>(args)...);
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
@@ -135,7 +125,7 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
+        pair_traits::construct(pair_alloc_, pair_ptr, std::piecewise_construct,
                                std::forward_as_tuple(key), std::tuple<>());
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
@@ -150,7 +140,7 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
+        pair_traits::construct(pair_alloc_, pair_ptr, std::piecewise_construct,
                                std::forward_as_tuple(std::move(key)),
                                std::tuple<>());
       } catch (...) {
@@ -170,7 +160,10 @@ class UnorderedMap {
    public:
     // LIST CONSTRUCTORS
     List(const list_allocator& alloc = list_allocator())
-        : fake_(&fake_, &fake_), size_(0), allocator_(alloc) {};
+        : fake_(&fake_, &fake_),
+          size_(0),
+          allocator_(alloc),
+          pair_alloc_(allocator_) {};
 
     ~List() {
       while (!empty()) {
@@ -338,7 +331,7 @@ class UnorderedMap {
   // PRIVATE METHODS
   List<NodeType, Allocator>* make_list() {
     List<NodeType, Allocator>* list = list_traits::allocate(list_alloc_, 1);
-    list_traits::construct(list_alloc_, list);
+    list_traits::construct(list_alloc_, list, allocator_);
     return list;
   }
 
@@ -396,6 +389,16 @@ class UnorderedMap {
         containment_(make_list()),
         buckets_begins_(buckets_amount_, list_iterator(containment_->end()),
                         alloc) {}
+  // RESET
+  void reset() {
+    if (containment_ != nullptr) {
+      while (!containment_->empty()) {
+        containment_->erase(containment_->begin());
+      }
+    }
+    std::fill(buckets_begins_.begin(), buckets_begins_.end(),
+              list_iterator(containment_->end()));
+  }
 
  public:
   Allocator get_allocator() const { return allocator_; }
@@ -408,6 +411,7 @@ class UnorderedMap {
         max_load_factor_(another.max_load_factor_),
         hasher_(another.hasher_),
         allocator_(alloc),
+        list_alloc_(alloc),
         equal_(another.equal_),
         containment_(make_list()),
         buckets_begins_(another.buckets_begins_.size(),
@@ -432,6 +436,7 @@ class UnorderedMap {
         max_load_factor_(std::move(another.max_load_factor_)),
         hasher_(std::move(another.hasher_)),
         allocator_(std::move(another.allocator_)),
+        list_alloc_(allocator_),
         equal_(std::move(another.equal_)),
         containment_(std::move(another.containment_)),
         buckets_begins_(std::move(another.buckets_begins_)) {
@@ -449,13 +454,50 @@ class UnorderedMap {
     if (this == &another) {
       return *this;
     }
-    if (alloc_traits::propagate_on_container_copy_assignment::value) {
-      UnorderedMap copied(another);
-      swap(copied);
-      return *this;
+
+    if constexpr (alloc_traits::propagate_on_container_copy_assignment::value) {
+      if (allocator_ != another.allocator_) {
+        if (containment_) {
+          destroy_list(containment_);
+          containment_ = nullptr;
+        }
+        buckets_begins_.clear();
+        allocator_ = another.allocator_;
+
+        list_alloc_ = list_allocator(allocator_);
+        containment_ = make_list();
+        buckets_begins_ = std::vector<list_iterator, alloc_list_iterator>(
+            another.buckets_amount_, list_iterator(containment_->end()),
+            allocator_);
+      } else {
+        reset();
+      }
+    } else {
+      reset();
     }
-    UnorderedMap copied(another, allocator_);
-    swap(copied);
+
+    buckets_amount_ = another.buckets_amount_;
+    max_load_factor_ = another.max_load_factor_;
+    hasher_ = another.hasher_;
+    equal_ = another.equal_;
+
+    if (buckets_begins_.size() != buckets_amount_) {
+      buckets_begins_.assign(buckets_amount_,
+                             list_iterator(containment_->end()));
+    } else {
+      std::fill(buckets_begins_.begin(), buckets_begins_.end(),
+                list_iterator(containment_->end()));
+    }
+
+    try {
+      for (const auto& pair : another) {
+        insert(pair);
+      }
+    } catch (...) {
+      reset();
+      throw;
+    }
+
     return *this;
   }
 
@@ -737,8 +779,10 @@ class UnorderedMap {
   }
 
   void swap(UnorderedMap& another) {
-    if (alloc_traits::propagate_on_container_swap::value) {
+    if constexpr (alloc_traits::propagate_on_container_swap::value) {
       std::swap(allocator_, another.allocator_);
+      list_alloc_ = list_allocator(allocator_);
+      another.list_alloc_ = list_allocator(another.allocator_);
     }
     std::swap(equal_, another.equal_);
     std::swap(hasher_, another.hasher_);
