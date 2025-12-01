@@ -125,7 +125,7 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc_, pair_ptr, std::piecewise_construct,
+        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
                                std::forward_as_tuple(key), std::tuple<>());
       } catch (...) {
         alloc_traits::deallocate(allocator_, node, 1);
@@ -140,7 +140,7 @@ class UnorderedMap {
       Node* node = alloc_traits::allocate(allocator_, 1);
       NodeType* pair_ptr = &(node->value);
       try {
-        pair_traits::construct(pair_alloc_, pair_ptr, std::piecewise_construct,
+        pair_traits::construct(pair_alloc, pair_ptr, std::piecewise_construct,
                                std::forward_as_tuple(std::move(key)),
                                std::tuple<>());
       } catch (...) {
