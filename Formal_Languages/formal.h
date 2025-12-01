@@ -192,21 +192,23 @@ class DFA {
             BFS_queue.push(next);
           }
         }
-      }
-    }
-    DFA temp_DFA;
-    temp_DFA.alphabet_ = alphabet_;
-    temp_DFA.start_state_ = start_state_;
-    for (State st : reachable_states) {
-      temp_DFA.states_.insert(st);
-      if (final_states_.contains(st)) {
-        temp_DFA.final_states_.insert(st);
-      }
-      for (Symbol letter : alphabet_) {
-        if (transition_function_.contains({st, letter}) &&
-            reachable_states.contains(transition_function_.at({st, letter}))) {
-          temp_DFA.add_transition(st, letter,
-                                  transition_function_.at({st, letter}));
+        std::set<State> reachable_states;
+        std::queue<State> BFS_queue;
+        BFS_queue.push(start_state_);
+        reachable_states.insert(start_state_);
+
+        while (!BFS_queue.empty()) {
+            State current = BFS_queue.front();
+            BFS_queue.pop();
+            for (Symbol letter : alphabet_) {
+                if (transition_function_.contains({ current, letter })) {
+                    State next = transition_function_.at({ current, letter });
+                    if (!reachable_states.contains(next)) {
+                        reachable_states.insert(next);
+                        BFS_queue.push(next);
+                    }
+                }
+            }
         }
       }
     }
@@ -249,7 +251,6 @@ class DFA {
             if (A.contains(temp_DFA.transition_function_.at({state, letter}))) {
               x.insert(state);
             }
-          }
         }
 
         std::set<std::set<State>> new_partition_sets;
@@ -284,38 +285,39 @@ class DFA {
       }
     }
 
-    DFA min_DFA;
-    min_DFA.alphabet_ = temp_DFA.alphabet_;
-    std::map<State, State> old_state_to_new_state;
-    State new_state_counter = 0;
 
-    for (const auto& block : partition) {
-      State representative = *block.begin();
-      State newState = new_state_counter++;
-      min_DFA.states_.insert(newState);
-      for (State s : block) {
-        old_state_to_new_state[s] = newState;
-      }
-      if (is_final(representative)) {
-        min_DFA.final_states_.insert(newState);
-      }
-    }
-    min_DFA.start_state_ = old_state_to_new_state[temp_DFA.start_state_];
+        DFA min_DFA;
+        min_DFA.alphabet_ = temp_DFA.alphabet_;
+        std::map<State, State> old_state_to_new_state;
+        State new_state_counter = 0;
 
-    for (const auto& block : partition) {
-      State representative = *block.begin();
-      for (Symbol letter : min_DFA.alphabet_) {
-        if (temp_DFA.transition_function_.contains({representative, letter})) {
-          State old_next_state =
-              temp_DFA.transition_function_.at({representative, letter});
-          State new_next_state = old_state_to_new_state[old_next_state];
-          min_DFA.add_transition(old_state_to_new_state[representative], letter,
-                                 new_next_state);
+        for (const auto& block : partition) {
+            State representative = *block.begin();
+            State newState = new_state_counter++;
+            min_DFA.states_.insert(newState);
+            for (State s : block) {
+                old_state_to_new_state[s] = newState;
+            }
+            if (is_final(representative)) {
+                min_DFA.final_states_.insert(newState);
+            }
         }
-      }
+        min_DFA.start_state_ = old_state_to_new_state[temp_DFA.start_state_];
+
+        for (const auto& block : partition) {
+            State representative = *block.begin();
+            for (Symbol letter : min_DFA.alphabet_) {
+                if (temp_DFA.transition_function_.contains({ representative, letter })) {
+                    State old_next_state =
+                        temp_DFA.transition_function_.at({ representative, letter });
+                    State new_next_state = old_state_to_new_state[old_next_state];
+                    min_DFA.add_transition(old_state_to_new_state[representative], letter,
+                        new_next_state);
+                }
+            }
+        }
+        *this = min_DFA;
     }
-    *this = min_DFA;
-  }
 
   void minimized() const {
     DFA copy = *this;

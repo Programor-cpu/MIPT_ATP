@@ -74,9 +74,6 @@ struct Point {
     x = new_x + center.x;
     y = new_y + center.y;
   }
-  double Cross(const Point& one, const Point& two) {
-    return (one.x * two.x + one.y * two.y);
-  }
   void ReflectPointByPoint(const Point& center) {
     *this += Point(*this, center) * 2;
   }
@@ -102,7 +99,10 @@ Point GetOrthogonal(const Point& another) {
   return inreturn;
 }
 double Dot(const Point& one, const Point& two) {
-  return (one.y * two.x - one.x * two.y);
+    return one.x * two.x + one.y * two.y;
+}
+double Cross(const Point& one, const Point& two) {
+  return one.y * two.x - one.x * two.y;
 }
 double Angle(const Point& a, const Point& b, const Point& c) {
   Point vector_one(b, a);
@@ -139,7 +139,7 @@ void Point::ReflectPointByLine(const Line& axis) {
   Point A(*this, axis.points().first);
   Point B(*this, axis.points().second);
   Point C(A, B);
-  *this += ((A + C * ((Cross(A, A) - Cross(A, B)) / Cross(C, C))) * 2);
+  *this += ((A + C * ((Dot(A, A) - Dot(A, B)) / Dot(C, C))) * 2);
 }
 
 class Shape {
@@ -386,19 +386,22 @@ class Polygon : public Shape {
   explicit Polygon(const Args&... args) : points_({args...}) {}
   const std::vector<Point>& getVertices() const { return points_; }
   bool isConvex() const {
-    double sign = 0;
+    double required_sign = 0;
     size_t n = points_.size();
+
     for (size_t i = 0; i != n; ++i) {
-      Point one = points_[i] - points_[(i + n - 1) % n];
-      Point two = points_[(i + 1 + n) % n] - points_[i];
-      if (i == 0) {
-        if (one.x * two.y - one.y * two.x > 0) {
-          sign = 1;
-        } else {
-          sign = -1;
-        }
+      Point a = points_[i] - points_[(i + n - 1) % n];
+      Point b = points_[(i + 1 + n) % n] - points_[i];
+      double cross_val = a.x * b.y - a.y * b.x;
+
+      if (tools::EqualDouble(cross_val, 0.0)) {
+        continue;
+      }
+      if (required_sign == 0) {
+        required_sign = (cross_val > 0) ? 1.0 : -1.0;
       } else {
-        if (sign * (one.x * two.y - one.y * two.x) < 0) {
+        double current_sign = (cross_val > 0) ? 1.0 : -1.0;
+        if (current_sign != required_sign) {
           return false;
         }
       }
@@ -406,6 +409,19 @@ class Polygon : public Shape {
     return true;
   }
   bool containsPoint(const Point& point) const final {
+    for (size_t i = 0; i < points_.size(); ++i) {
+      Point one = points_[i];
+      Point two = points_[(i + 1 + points_.size()) % points_.size()];
+      Point v_edge = two - one;
+      Point v_ap = point - one;
+      double cross_val = v_ap.x * v_edge.y - v_ap.y * v_edge.x;
+      if (tools::EqualDouble(cross_val, 0.0)) {
+        if (Dot(v_ap, v_edge) >= -tools::cDelta &&
+            Dot(point - two, one - two) >= -tools::cDelta) {
+          return true;
+        }
+      }
+    }
     bool inside = false;
     for (size_t i = 0; i < points_.size(); ++i) {
       Point one = points_[i];
