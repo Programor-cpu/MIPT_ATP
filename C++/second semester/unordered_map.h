@@ -506,8 +506,11 @@ class UnorderedMap {
       return *this;
     }
     if constexpr (!alloc_traits::propagate_on_container_move_assignment::
-                      value &&
-                  allocator_ != another.allocator_) {
+                      value) {
+      if (allocator_ == another.allocator_) {
+        swap(another);
+        return *this;
+      }
       UnorderedMap copied(allocator_);
       for (iterator i = another.begin(); i != another.end(); ++i) {
         copied.insert(std::move(*i));
@@ -616,10 +619,10 @@ class UnorderedMap {
       if (equal_(key, i->first)) {
         return iterator(i);
       }
+      ++i;
       if (i == containment_->end()) {
         break;
       }
-      ++i;
       actual_hash = (i.get_pointer())->hash;
     }
     auto j = containment_->end();
@@ -636,10 +639,10 @@ class UnorderedMap {
       if (equal_(key, i->first)) {
         return const_iterator(i);
       }
+      ++i;
       if (i == containment_->cend()) {
         break;
       }
-      ++i;
       actual_hash = (i.get_pointer())->hash;
     }
     auto j = containment_->cend();
